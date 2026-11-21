@@ -23,12 +23,6 @@ import {
 
 import { t, TRANSLATIONS, type TranslationKey } from "../i18n";
 
-function assert(condition: boolean, message: string): void {
-	if (!condition) {
-		throw new Error(`Localization Specification Failure: ${message}`);
-	}
-}
-
 export const EXPECTED_LANGUAGES: readonly SupportedLanguage[] = [
 	"en",
 	"hi",
@@ -43,88 +37,165 @@ export const EXPECTED_LANGUAGES: readonly SupportedLanguage[] = [
 	"pa",
 ] as const;
 
+type CaseCheck = (condition: boolean, message: string) => void;
+
+function runCase(name: string, run: (check: CaseCheck) => void): boolean {
+	const failures: string[] = [];
+
+	console.log(`\nCASE: ${name}`);
+
+	const check: CaseCheck = (condition, message) => {
+		if (condition) {
+			console.log(`  PASS: ${message}`);
+			return;
+		}
+
+		console.log(`  FAIL: ${message}`);
+		failures.push(message);
+	};
+
+	try {
+		run(check);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.log(`  ERROR: ${message}`);
+		failures.push(message);
+	}
+
+	if (failures.length === 0) {
+		console.log(`RESULT: PASS - ${name}`);
+		return true;
+	}
+
+	console.log(`RESULT: FAIL - ${name} (${failures.length} failure(s))`);
+	return false;
+}
+
 export function verifyLanguageMetadata(): void {
-	// 1. Should support exactly 11 Indian languages mandated by FRD 17.3
-	assert(
-		SUPPORTED_LANGUAGES.length === 11,
-		`Expected 11 languages, got ${SUPPORTED_LANGUAGES.length}`,
-	);
-	assert(CHAT_LANGUAGES.length === 11, "CHAT_LANGUAGES must contain 11 entries");
-	const enInfo = getLanguageInfo("en");
-	assert(enInfo.code === "en" && enInfo.dir === "ltr", "getLanguageInfo('en') must be valid");
-	for (const code of EXPECTED_LANGUAGES) {
-		assert(SUPPORTED_LANGUAGES.includes(code), `Missing supported language code: ${code}`);
-		assert(isSupportedLanguage(code), `isSupportedLanguage returned false for valid code: ${code}`);
-		assert(LANGUAGE_METADATA[code] !== undefined, `Missing metadata for ${code}`);
-		assert(LANGUAGE_METADATA[code].code === code, `Metadata code mismatch for ${code}`);
-	}
+	const results = [
+		runCase("1. Supported language metadata", (check) => {
+			check(
+				SUPPORTED_LANGUAGES.length === 11,
+				`Expected exactly 11 supported languages; received ${SUPPORTED_LANGUAGES.length}`,
+			);
+			check(CHAT_LANGUAGES.length === 11, "CHAT_LANGUAGES contains exactly 11 entries");
 
-	// 2. Reject unsupported languages safely
-	assert(!isSupportedLanguage("fr"), "Should reject 'fr'");
-	assert(!isSupportedLanguage("es"), "Should reject 'es'");
-	assert(!isSupportedLanguage(""), "Should reject empty string");
-	assert(!isSupportedLanguage(null), "Should reject null");
-	assert(!isSupportedLanguage(undefined), "Should reject undefined");
+			const enInfo = getLanguageInfo("en");
+			check(enInfo.code === "en" && enInfo.dir === "ltr", "English metadata is valid and LTR");
 
-	// 3. Directionality: Urdu is RTL, others are LTR
-	assert(getLanguageDirection("ur") === "rtl", "Urdu must be RTL");
-	assert(isRTL("ur") === true, "isRTL('ur') must be true");
+			for (const code of EXPECTED_LANGUAGES) {
+				check(SUPPORTED_LANGUAGES.includes(code), `${code}: included in supported languages`);
+				check(isSupportedLanguage(code), `${code}: accepted by isSupportedLanguage`);
+				check(LANGUAGE_METADATA[code] !== undefined, `${code}: metadata exists`);
+				check(LANGUAGE_METADATA[code].code === code, `${code}: metadata code matches`);
+			}
+		}),
 
-	const ltrLanguages: SupportedLanguage[] = [
-		"en",
-		"hi",
-		"bn",
-		"te",
-		"mr",
-		"ta",
-		"gu",
-		"kn",
-		"ml",
-		"pa",
+		runCase("2. Unsupported language rejection", (check) => {
+			const unsupportedInputs: readonly [string, unknown][] = [
+				["French", "fr"],
+				["Spanish", "es"],
+				["empty string", ""],
+				["null", null],
+				["undefined", undefined],
+			];
+
+			for (const [label, value] of unsupportedInputs) {
+				check(!isSupportedLanguage(value), `${label}: safely rejected`);
+			}
+		}),
+
+		runCase("3. Language directionality", (check) => {
+			check(getLanguageDirection("ur") === "rtl", "Urdu direction is RTL");
+			check(isRTL("ur") === true, "isRTL('ur') returns true");
+
+			const ltrLanguages: SupportedLanguage[] = [
+				"en",
+				"hi",
+				"bn",
+				"te",
+				"mr",
+				"ta",
+				"gu",
+				"kn",
+				"ml",
+				"pa",
+			];
+			for (const lang of ltrLanguages) {
+				check(getLanguageDirection(lang) === "ltr", `${lang}: direction is LTR`);
+				check(isRTL(lang) === false, `${lang}: isRTL() returns false`);
+			}
+		}),
+
+		runCase("4. Speech recognition locale mapping", (check) => {
+			const expectedLocales: readonly [SupportedLanguage | string | null, string][] = [
+				["en", "en-US"],
+				["hi", "hi-IN"],
+				["bn", "bn-IN"],
+				["te", "te-IN"],
+				["mr", "mr-IN"],
+				["ta", "ta-IN"],
+				["ur", "ur-IN"],
+				["gu", "gu-IN"],
+				["kn", "kn-IN"],
+				["ml", "ml-IN"],
+				["pa", "pa-IN"],
+				["unsupported", "en-US"],
+				[null, "en-US"],
+			];
+
+			for (const [input, expected] of expectedLocales) {
+				const actual = getSpeechRecognitionLocale(input);
+				check(actual === expected, `${String(input)}: expected ${expected}, received ${actual}`);
+			}
+		}),
+
+		runCase("5. Translation lookup and fallback", (check) => {
+			const hiDoctor = t("common.consultDoctor", "hi");
+			check(
+				hiDoctor === "हमेशा डॉक्टर से सलाह लें",
+				`Hindi consult-doctor translation is correct: ${hiDoctor}`,
+			);
+
+			const fallbackEn = t("common.consultDoctor", "en");
+			check(
+				fallbackEn === "Always consult a doctor",
+				`English consult-doctor translation is correct: ${fallbackEn}`,
+			);
+
+			const missingKey = "nonexistent.key" as TranslationKey;
+			check(
+				t(missingKey, "hi") === "nonexistent.key",
+				"Missing translation keys safely return the key name",
+			);
+		}),
+
+		runCase("6. Medical safety translations", (check) => {
+			for (const lang of EXPECTED_LANGUAGES) {
+				const dict = TRANSLATIONS[lang];
+				check(dict !== undefined, `${lang}: translation dictionary exists`);
+				check(
+					Boolean(dict?.["common.medicalDisclaimer"]),
+					`${lang}: medical disclaimer exists`,
+				);
+				check(
+					Boolean(dict?.["common.emergencyAlert"]),
+					`${lang}: emergency alert exists`,
+				);
+				check(
+					dict?.["common.emergencyAlert"]?.includes("112") === true,
+					`${lang}: emergency alert contains emergency number 112`,
+				);
+			}
+		}),
 	];
-	for (const lang of ltrLanguages) {
-		assert(getLanguageDirection(lang) === "ltr", `${lang} must be LTR`);
-		assert(isRTL(lang) === false, `isRTL('${lang}') must be false`);
-	}
 
-	// 4. Speech locale tags & safe fallback to en-US
-	assert(getSpeechRecognitionLocale("en") === "en-US", "en should map to en-US");
-	assert(getSpeechRecognitionLocale("hi") === "hi-IN", "hi should map to hi-IN");
-	assert(getSpeechRecognitionLocale("bn") === "bn-IN", "bn should map to bn-IN");
-	assert(getSpeechRecognitionLocale("te") === "te-IN", "te should map to te-IN");
-	assert(getSpeechRecognitionLocale("mr") === "mr-IN", "mr should map to mr-IN");
-	assert(getSpeechRecognitionLocale("ta") === "ta-IN", "ta should map to ta-IN");
-	assert(getSpeechRecognitionLocale("ur") === "ur-IN", "ur should map to ur-IN");
-	assert(getSpeechRecognitionLocale("gu") === "gu-IN", "gu should map to gu-IN");
-	assert(getSpeechRecognitionLocale("kn") === "kn-IN", "kn should map to kn-IN");
-	assert(getSpeechRecognitionLocale("ml") === "ml-IN", "ml should map to ml-IN");
-	assert(getSpeechRecognitionLocale("pa") === "pa-IN", "pa should map to pa-IN");
-	assert(getSpeechRecognitionLocale("unsupported") === "en-US", "unsupported must fall back to en-US");
-	assert(getSpeechRecognitionLocale(null) === "en-US", "null must fall back to en-US");
+	const passed = results.filter(Boolean).length;
+	const failed = results.length - passed;
 
-	// 5. Translations & fallback
-	const hiDoctor = t("common.consultDoctor", "hi");
-	assert(hiDoctor === "हमेशा डॉक्टर से सलाह लें", `Unexpected translation for hi: ${hiDoctor}`);
-
-	const fallbackEn = t("common.consultDoctor", "en");
-	assert(fallbackEn === "Always consult a doctor", `Unexpected translation for en: ${fallbackEn}`);
-
-	const missingKey = "nonexistent.key" as TranslationKey;
-	assert(t(missingKey, "hi") === "nonexistent.key", "Missing key should safely return key name");
-
-	// 6. Medical safety disclaimers across all 11 languages
-	for (const lang of EXPECTED_LANGUAGES) {
-		const dict = TRANSLATIONS[lang];
-		assert(dict !== undefined, `Dictionary missing for ${lang}`);
-		assert(
-			Boolean(dict?.["common.medicalDisclaimer"]),
-			`Medical disclaimer missing for ${lang}`,
-		);
-		assert(Boolean(dict?.["common.emergencyAlert"]), `Emergency alert missing for ${lang}`);
-		assert(
-			dict?.["common.emergencyAlert"]?.includes("112") === true,
-			`Emergency alert for ${lang} must include emergency number 112`,
-		);
+	console.log(`\nSUMMARY: ${passed}/${results.length} cases passed`);
+	if (failed > 0) {
+		throw new Error(`Localization verification failed: ${failed} case(s) failed`);
 	}
 }
 
