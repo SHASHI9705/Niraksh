@@ -335,6 +335,7 @@ Dive deeper into our backend architecture, database schemas, and AI engineering 
 - [Backend System Design](./SYSTEM_DESIGN.md)
 - [Database Schema Guide](./DATABASE_SCHEMA.md)
 - [Health Data Retention & Cleanup Runbook](../docs/RETENTION_AND_CLEANUP.md)
+- [AI Safety Evaluation & Regression Guide](../docs/AI_SAFETY_EVALUATION.md)
 
 ### Current care-coordination API
 
@@ -368,3 +369,6 @@ Patient endpoints are mounted under `/api/appointments` and `/api/clinical-intak
 - `pnpm retention:cleanup`: Runs scheduled health-data retention and cleanup jobs
 - `pnpm retention:dry-run`: Safe dry-run inspection of retention targets without DB or CDN mutations
 - `pnpm test:retention`: Executes the automated retention test suite
+- `pnpm test:ai-safety`: Runs the automated AI safety evaluation & regression test suite
+- `pnpm eval:ai-safety`: Runs the AI safety evaluation CLI runner in offline mock mode
+- `pnpm eval:ai-safety:live`: Opt-in live evaluation against the live Gemini model

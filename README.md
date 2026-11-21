@@ -260,6 +260,7 @@ Important safeguards:
 - [Frontend system design](./frontend/doc/SYSTEM_DESIGN.md)
 - [Localization & Multi-Language Guide](./docs/LOCALIZATION.md) — 11-language architecture, speech fallbacks, RTL, and QA checklist
 - [Health Data Retention & Deletion](./docs/RETENTION_AND_CLEANUP.md) — automated cleanup jobs, TTL policies, Cloudinary synchronization, and operational runbook
+- [AI Safety Evaluation & Regression Tests](./docs/AI_SAFETY_EVALUATION.md) — synthetic safety evaluation suite, non-diagnostic/emergency invariants, and CI runbook
 - [AI service README](./ai-services/README.md) — local FastAPI/Ollama fallback
 
 ## 🌱 Contributing

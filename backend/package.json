@@ -18,6 +18,9 @@
 		"retention:cleanup": "tsx scripts/run-retention-cleanup.ts",
 		"retention:dry-run": "tsx scripts/run-retention-cleanup.ts --dry-run",
 		"test:retention": "tsx src/__tests__/retention.test.ts",
+		"test:ai-safety": "tsx src/__tests__/aiSafety.test.ts",
+		"eval:ai-safety": "tsx scripts/run-ai-safety-eval.ts",
+		"eval:ai-safety:live": "tsx scripts/run-ai-safety-eval.ts --live",
 		"clean": "rm -rf dist && rm -rf node_modules && pnpm install"
 	},
 	"keywords": [],
